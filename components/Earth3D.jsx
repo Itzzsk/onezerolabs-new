@@ -4,16 +4,12 @@ import { useRef, Suspense, useEffect, useState } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
-const EARTH_MODEL_URL =
-  process.env.NEXT_PUBLIC_EARTH_MODEL_URL ||
-  'https://raw.githubusercontent.com/Itzzsk/onezerolabs-assets/main/earth.glb';
 
 // 🌍 Earth Model with Neon Material
 function EarthModel({ scrollRotation, manualRotation, autoRotate }) {
   const earthRef = useRef()
   const autoRotationRef = useRef(0)
-  const { scene } = useGLTF(EARTH_MODEL_URL)
-
+  const { scene } = useGLTF('/earth.glb')
   const { viewport } = useThree()
 
   // Responsive scale (bigger on mobile)
@@ -144,4 +140,4 @@ export default function Earth3D({
   )
 }
 
-useGLTF.preload(EARTH_MODEL_URL)
+useGLTF.preload('/earth.glb')
