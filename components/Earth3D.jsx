@@ -1,64 +1,78 @@
 'use client'
 
-import { useRef, Suspense, useEffect, useState } from 'react'
+import { useRef, Suspense, useEffect, useState, useMemo } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { useGLTF } from '@react-three/drei'
+import { useGLTF, Html, useProgress } from '@react-three/drei'
 import * as THREE from 'three'
 
-// 🌍 Earth Model with Neon Material
-function EarthModel({ scrollRotation, manualRotation, autoRotate }) {
+// ✅ Preload GLB early
+useGLTF.preload('/earth.glb')
+
+// 🔄 Loading UI
+function Loader() {
+  const { progress } = useProgress()
+  return (
+    <Html center>
+      <div style={{ color: '#00ffff', fontSize: 16, fontWeight: 'bold' }}>
+        Loading {progress.toFixed(0)}%
+      </div>
+    </Html>
+  )
+}
+
+// 🌍 Earth Model
+function EarthModel() {
   const earthRef = useRef()
-  const autoRotationRef = useRef(0)
   const { scene } = useGLTF('/earth.glb')
   const { viewport } = useThree()
 
-  // Responsive scale (bigger on mobile)
-  const scale = Math.min(viewport.width / 4.2, 2.8)
+  // Neon glowing material (created once)
+  const neonMaterial = useMemo(() => {
+    const mat = new THREE.MeshStandardMaterial({
+      emissive: new THREE.Color('#00ffff'),
+      emissiveIntensity: 2.8,
+      metalness: 0.5,
+      roughness: 0.25,
+      transparent: true,
+      opacity: 1,
+      side: THREE.DoubleSide,
+    })
 
-  // Apply a neon-like emissive material
+    // Add soft glow to edges
+    mat.onBeforeCompile = (shader) => {
+      shader.fragmentShader = shader.fragmentShader.replace(
+        '#include <emissivemap_fragment>',
+        `
+          #include <emissivemap_fragment>
+          float intensity = pow(1.0 - dot(normal, vec3(0.0, 0.0, 1.0)), 3.0);
+          gl_FragColor.rgb += intensity * vec3(0.0, 1.0, 1.0) * 1.6;
+        `
+      )
+    }
+    return mat
+  }, [])
+
+  // Apply neon material on load
   useEffect(() => {
     if (!scene) return
     scene.traverse((child) => {
-      if (child.isMesh && child.material) {
-        const mat = child.material.clone()
-        mat.emissive = new THREE.Color('#00ffff') // Neon cyan
-        mat.emissiveIntensity = 2.5
-        mat.metalness = 0.5
-        mat.roughness = 0.3
-        mat.transparent = true
-        mat.opacity = 1
-        mat.side = THREE.DoubleSide
-
-        // Add a glowing edge effect using emissive color
-        mat.onBeforeCompile = (shader) => {
-          shader.fragmentShader = shader.fragmentShader.replace(
-            '#include <emissivemap_fragment>',
-            `
-              #include <emissivemap_fragment>
-              float intensity = pow(1.0 - dot(normal, vec3(0.0, 0.0, 1.0)), 3.0);
-              gl_FragColor.rgb += intensity * vec3(0.0, 1.0, 1.0) * 1.8;
-            `
-          )
-        }
-
-        child.material = mat
-      }
+      if (child.isMesh) child.material = neonMaterial
     })
-  }, [scene])
+  }, [scene, neonMaterial])
 
-  // Rotation animation logic
+  const scale = Math.min(viewport.width / 4.2, 2.8)
+  const rotationSpeed = 0.15
+  const rotationTarget = useRef(0)
+
+  // 🌀 Smooth Continuous Rotation
   useFrame((_, delta) => {
     if (!earthRef.current) return
-    if (manualRotation !== 0) {
-      earthRef.current.rotation.y = (manualRotation * Math.PI) / 180
-      autoRotationRef.current = earthRef.current.rotation.y
-    } else if (autoRotate) {
-      autoRotationRef.current += delta * 0.25
-      earthRef.current.rotation.y = autoRotationRef.current
-    } else if (scrollRotation !== undefined) {
-      earthRef.current.rotation.y = (scrollRotation * Math.PI) / 180
-      autoRotationRef.current = earthRef.current.rotation.y
-    }
+    rotationTarget.current += delta * rotationSpeed
+    earthRef.current.rotation.y = THREE.MathUtils.lerp(
+      earthRef.current.rotation.y,
+      rotationTarget.current,
+      0.08 // damping for natural motion
+    )
   })
 
   return (
@@ -71,26 +85,8 @@ function EarthModel({ scrollRotation, manualRotation, autoRotate }) {
   )
 }
 
-// 🌐 Loader (Spinner)
-function Loader() {
-  const ref = useRef()
-  useFrame(() => {
-    if (ref.current) ref.current.rotation.y += 0.03
-  })
-  return (
-    <mesh ref={ref}>
-      <sphereGeometry args={[1, 32, 32]} />
-      <meshBasicMaterial wireframe color="#00ffff" />
-    </mesh>
-  )
-}
-
-// 🌎 Main Component
-export default function Earth3D({
-  rotation = 0,
-  manualRotation = 0,
-  autoRotate = true,
-}) {
+// 🚀 Main Component
+export default function Earth3D() {
   const [isMobile, setIsMobile] = useState(false)
 
   useEffect(() => {
@@ -103,7 +99,7 @@ export default function Earth3D({
   return (
     <Canvas
       camera={{
-        position: [0, 0, isMobile ? 6 : 6.5], // Closer camera for mobile
+        position: [0, 0, isMobile ? 6 : 6.5],
         fov: isMobile ? 60 : 50,
       }}
       className="w-full h-full"
@@ -111,33 +107,19 @@ export default function Earth3D({
         antialias: true,
         powerPreference: 'high-performance',
         toneMapping: THREE.ACESFilmicToneMapping,
-        toneMappingExposure: 1.4,
+        toneMappingExposure: 1.3,
       }}
-      dpr={[1, isMobile ? 2 : 2]}
+      dpr={[1, isMobile ? 1.25 : 1.5]}
+      frameloop="always"
     >
       <Suspense fallback={<Loader />}>
-        {/* Deep space background */}
         <color attach="background" args={['#000000']} />
-
-        {/* Lighting setup */}
         <ambientLight intensity={1.2} />
-        <pointLight position={[10, 10, 10]} intensity={1.5} color="#00ffff" />
-        <pointLight position={[-10, -10, -8]} intensity={0.8} color="#00bcd4" />
-        <directionalLight
-          position={[5, 5, 5]}
-          intensity={1.5}
-          color="#ffffff"
-        />
-
-        {/* Earth Model */}
-        <EarthModel
-          scrollRotation={rotation}
-          manualRotation={manualRotation}
-          autoRotate={autoRotate}
-        />
+        <pointLight position={[10, 10, 10]} intensity={1.4} color="#00ffff" />
+        <pointLight position={[-10, -10, -8]} intensity={0.7} color="#00bcd4" />
+        <directionalLight position={[5, 5, 5]} intensity={1.3} color="#ffffff" />
+        <EarthModel />
       </Suspense>
     </Canvas>
   )
 }
-
-useGLTF.preload('/earth.glb')
