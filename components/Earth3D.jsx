@@ -1,76 +1,55 @@
 'use client'
 
-import { useRef, Suspense, useEffect, useState, useMemo } from 'react'
+import { useRef, useEffect, useState, useMemo } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { useGLTF, Html, useProgress } from '@react-three/drei'
+import { useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
 
-// Preload GLB model eagerly
+// Cache GLB once globally (fastest loading)
+const cache = { scene: null }
 useGLTF.preload('/earth.glb')
 
-// Loader UI during suspense fallback
-function Loader() {
-  const { progress } = useProgress()
-  return (
-    <Html center>
-      <div style={{ color: '#00ffff', fontWeight: 'bold', fontSize: 16 }}>
-        Loading {progress.toFixed(0)}%
-      </div>
-    </Html>
-  )
+function useFastGLB() {
+  if (cache.scene) return cache.scene
+  const gltf = useGLTF('/earth.glb')
+  cache.scene = gltf.scene
+  return gltf.scene
 }
 
 function EarthModel() {
   const earthRef = useRef()
-  const { scene } = useGLTF('/earth.glb')
+  const scene = useFastGLB()
   const { viewport } = useThree()
 
-  // Neon glowing material memoization
+  // LIGHT neon material (super cheap on GPU)
   const neonMaterial = useMemo(() => {
-    const mat = new THREE.MeshStandardMaterial({
-      emissive: new THREE.Color('#00ffff'),
-      emissiveIntensity: 2.8,
-      metalness: 0.5,
-      roughness: 0.25,
-      transparent: true,
-      opacity: 1,
-      side: THREE.DoubleSide,
+    return new THREE.MeshStandardMaterial({
+      color: '#00faff',
+      emissive: '#0088aa',
+      emissiveIntensity: 0.3,
+      metalness: 0.2,
+      roughness: 0.7,
     })
-
-    mat.onBeforeCompile = (shader) => {
-      shader.fragmentShader = shader.fragmentShader.replace(
-        '#include <emissivemap_fragment>',
-        `
-          #include <emissivemap_fragment>
-          float intensity = pow(1.0 - dot(normal, vec3(0.0, 0.0, 1.0)), 3.0);
-          gl_FragColor.rgb += intensity * vec3(0.0, 1.0, 1.0) * 1.6;
-        `
-      )
-    }
-    return mat
   }, [])
 
-  // Apply neon material to all meshes on load
+  // Apply material once
   useEffect(() => {
-    if (!scene) return
     scene.traverse((child) => {
-      if (child.isMesh) child.material = neonMaterial
+      if (child.isMesh) {
+        child.material = neonMaterial
+        child.material.side = THREE.FrontSide
+      }
     })
   }, [scene, neonMaterial])
 
-  const scale = Math.min(viewport.width / 4.2, 2.8)
-  const rotationTarget = useRef(0)
-  const rotationSpeed = 0.15
+  // Scale
+  const scale = Math.min(viewport.width / 4.5, 2.3)
 
-  // Smooth continuous rotation with lerp for damping
+  // Lightweight rotation
   useFrame((_, delta) => {
-    if (!earthRef.current) return
-    rotationTarget.current += delta * rotationSpeed
-    earthRef.current.rotation.y = THREE.MathUtils.lerp(
-      earthRef.current.rotation.y,
-      rotationTarget.current,
-      0.08
-    )
+    if (earthRef.current) {
+      earthRef.current.rotation.y += delta * 0.15
+    }
   })
 
   return (
@@ -79,44 +58,45 @@ function EarthModel() {
       object={scene}
       scale={scale}
       position={[0, 0, 0]}
-      dispose={null} // Proper disposal to avoid memory leaks
     />
   )
 }
 
 export default function Earth3D() {
-  const [isMobile, setIsMobile] = useState(false)
+  const [mobile, setMobile] = useState(false)
 
   useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 768)
-    window.addEventListener('resize', handleResize)
-    handleResize()
-    return () => window.removeEventListener('resize', handleResize)
+    const check = () => setMobile(window.innerWidth < 768)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
   }, [])
 
   return (
     <Canvas
       camera={{
-        position: [0, 0, isMobile ? 6 : 6.5],
-        fov: isMobile ? 60 : 50,
+        position: [0, 0, mobile ? 6 : 6.5],
+        fov: mobile ? 58 : 50,
       }}
-      className="w-full h-full"
       gl={{
         antialias: true,
+        alpha: true,
         powerPreference: 'high-performance',
-        toneMapping: THREE.ACESFilmicToneMapping,
-        toneMappingExposure: 1.3,
+        preserveDrawingBuffer: false,
+        toneMapping: THREE.NoToneMapping,
+        clearColor: 'black',
       }}
-      dpr={[1, isMobile ? 1.25 : 1.5]}
+      onCreated={({ gl }) => {
+        gl.setClearColor('#000000')
+      }}
+      dpr={[1, 1]} // MAX performance
       frameloop="always"
     >
-      <Suspense fallback={<Loader />}>
-        <ambientLight intensity={1.2} />
-        <pointLight position={[10, 10, 10]} intensity={1.4} color="#00ffff" />
-        <pointLight position={[-10, -10, -8]} intensity={0.7} color="#00bcd4" />
-        <directionalLight position={[5, 5, 5]} intensity={1.3} color="#ffffff" />
-        <EarthModel />
-      </Suspense>
+      {/* extremely cheap lighting */}
+      <ambientLight intensity={0.5} />
+      <directionalLight position={[5, 5, 5]} intensity={0.6} />
+
+      <EarthModel />
     </Canvas>
   )
 }
