@@ -5,7 +5,7 @@ import { motion, useScroll, useTransform } from 'framer-motion'
 import dynamic from 'next/dynamic'
 
 // Lazy load 3D Earth component (client-only)
-const EarthModelHalf = dynamic(() => import('./EarthModel'), { ssr: false })
+
 
 export default function ServicesSection() {
   const containerRef = useRef(null)
@@ -102,7 +102,7 @@ export default function ServicesSection() {
               height: '180vmin',
             }}
           >
-            <EarthModelHalf />
+          
           </div>
         </motion.div>
       )}
