@@ -5,28 +5,27 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { useGLTF, Html, useProgress } from '@react-three/drei'
 import * as THREE from 'three'
 
-// ✅ Preload GLB early
+// Preload GLB model eagerly
 useGLTF.preload('/earth.glb')
 
-// 🔄 Loading UI
+// Loader UI during suspense fallback
 function Loader() {
   const { progress } = useProgress()
   return (
     <Html center>
-      <div style={{ color: '#00ffff', fontSize: 16, fontWeight: 'bold' }}>
+      <div style={{ color: '#00ffff', fontWeight: 'bold', fontSize: 16 }}>
         Loading {progress.toFixed(0)}%
       </div>
     </Html>
   )
 }
 
-// 🌍 Earth Model
 function EarthModel() {
   const earthRef = useRef()
   const { scene } = useGLTF('/earth.glb')
   const { viewport } = useThree()
 
-  // Neon glowing material (created once)
+  // Neon glowing material memoization
   const neonMaterial = useMemo(() => {
     const mat = new THREE.MeshStandardMaterial({
       emissive: new THREE.Color('#00ffff'),
@@ -38,7 +37,6 @@ function EarthModel() {
       side: THREE.DoubleSide,
     })
 
-    // Add soft glow to edges
     mat.onBeforeCompile = (shader) => {
       shader.fragmentShader = shader.fragmentShader.replace(
         '#include <emissivemap_fragment>',
@@ -52,7 +50,7 @@ function EarthModel() {
     return mat
   }, [])
 
-  // Apply neon material on load
+  // Apply neon material to all meshes on load
   useEffect(() => {
     if (!scene) return
     scene.traverse((child) => {
@@ -61,17 +59,17 @@ function EarthModel() {
   }, [scene, neonMaterial])
 
   const scale = Math.min(viewport.width / 4.2, 2.8)
-  const rotationSpeed = 0.15
   const rotationTarget = useRef(0)
+  const rotationSpeed = 0.15
 
-  // 🌀 Smooth Continuous Rotation
+  // Smooth continuous rotation with lerp for damping
   useFrame((_, delta) => {
     if (!earthRef.current) return
     rotationTarget.current += delta * rotationSpeed
     earthRef.current.rotation.y = THREE.MathUtils.lerp(
       earthRef.current.rotation.y,
       rotationTarget.current,
-      0.08 // damping for natural motion
+      0.08
     )
   })
 
@@ -81,18 +79,18 @@ function EarthModel() {
       object={scene}
       scale={scale}
       position={[0, 0, 0]}
+      dispose={null} // Proper disposal to avoid memory leaks
     />
   )
 }
 
-// 🚀 Main Component
 export default function Earth3D() {
   const [isMobile, setIsMobile] = useState(false)
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768)
-    handleResize()
     window.addEventListener('resize', handleResize)
+    handleResize()
     return () => window.removeEventListener('resize', handleResize)
   }, [])
 
@@ -113,7 +111,6 @@ export default function Earth3D() {
       frameloop="always"
     >
       <Suspense fallback={<Loader />}>
-        <color attach="background" args={['#000000']} />
         <ambientLight intensity={1.2} />
         <pointLight position={[10, 10, 10]} intensity={1.4} color="#00ffff" />
         <pointLight position={[-10, -10, -8]} intensity={0.7} color="#00bcd4" />
