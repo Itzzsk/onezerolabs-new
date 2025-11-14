@@ -2,10 +2,6 @@
 
 import { useRef, useState, useEffect } from 'react'
 import { motion, useScroll, useTransform } from 'framer-motion'
-import dynamic from 'next/dynamic'
-
-// Lazy load 3D Earth component (client-only)
-
 
 export default function ServicesSection() {
   const containerRef = useRef(null)
@@ -13,14 +9,31 @@ export default function ServicesSection() {
   const [hover, setHover] = useState(false)
   const [mounted, setMounted] = useState(false)
 
-  useEffect(() => setMounted(true), [])
+  // ⭐ Prevents hydration mismatch
+  const [stars, setStars] = useState([])
+
+  useEffect(() => {
+    setMounted(true)
+
+    // ⭐ Generate stars ONLY on client
+    const generatedStars = Array.from({ length: 100 }, (_, i) => ({
+      id: i,
+      x: Math.random() * 100,
+      y: Math.random() * 70,
+      size: Math.random() * 2 + 1,
+      duration: Math.random() * 3 + 2,
+      delay: Math.random() * 2,
+    }))
+
+    setStars(generatedStars)
+  }, [])
 
   const { scrollYProgress } = useScroll({
     target: containerRef,
-    offset: ['start end', 'end start']
+    offset: ['start end', 'end start'],
   })
 
-  // Smooth scroll-based animations
+  // Smooth motion transforms
   const titleY = useTransform(scrollYProgress, [0, 0.4, 0.7], ['50vh', '0vh', '-100vh'])
   const titleOpacity = useTransform(scrollYProgress, [0, 0.15, 0.6, 0.75], [0, 1, 1, 0])
   const descOpacity = useTransform(scrollYProgress, [0.15, 0.3, 0.6, 0.75], [0, 1, 1, 0])
@@ -30,15 +43,6 @@ export default function ServicesSection() {
 
   const handleMove = (e) => setMouse({ x: e.clientX, y: e.clientY })
 
-  const stars = Array.from({ length: 100 }, (_, i) => ({
-    id: i,
-    x: Math.random() * 100,
-    y: Math.random() * 70,
-    size: Math.random() * 2 + 1,
-    duration: Math.random() * 3 + 2,
-    delay: Math.random() * 2
-  }))
-
   return (
     <section
       ref={containerRef}
@@ -47,7 +51,7 @@ export default function ServicesSection() {
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
     >
-      {/* Pure black background with subtle stars */}
+      {/* BACKGROUND STARS (SSR-SAFE) */}
       <div className="absolute inset-0 z-0 bg-black">
         {stars.map((star) => (
           <motion.div
@@ -64,60 +68,20 @@ export default function ServicesSection() {
               duration: star.duration,
               repeat: Infinity,
               delay: star.delay,
-              ease: 'easeInOut'
+              ease: 'easeInOut',
             }}
           />
         ))}
       </div>
 
-      {/* Earth Model - No container borders */}
-      {mounted && (
-        <motion.div
-          aria-hidden
-          className="fixed right-0 top-0 h-screen w-[55vw] z-10 pointer-events-none"
-          style={{ opacity: heroOpacity }}
-        >
-          {/* Gradient blend with background */}
-          <div
-            aria-hidden
-            style={{
-              position: 'absolute',
-              left: 0,
-              top: 0,
-              height: '100%',
-              width: '10%',
-              background: 'linear-gradient(to left, rgba(0,0,0,0), rgba(0,0,0,1) 80%)',
-              pointerEvents: 'none'
-            }}
-          />
-
-          {/* Earth positioning */}
-          <div
-            style={{
-              position: 'absolute',
-              right: '-10vmin',
-              top: '50%',
-              transform: 'translateY(-50%)',
-              width: '180vmin',
-              height: '180vmin',
-            }}
-          >
-          
-          </div>
-        </motion.div>
-      )}
-
-      {/* Floating astronaut */}
+      {/* FLOATING ASTRONAUT */}
       <motion.div
         className="absolute right-[4%] bottom-[10%] w-[140px] sm:w-[200px] md:w-[240px] lg:w-[280px] pointer-events-none z-20"
         style={{ opacity: astroOpacity }}
-        animate={{
-          y: [0, -20, 0],
-          rotate: [-2, 2, -2]
-        }}
+        animate={{ y: [0, -20, 0], rotate: [-2, 2, -2] }}
         transition={{
           y: { duration: 4, repeat: Infinity, ease: 'easeInOut' },
-          rotate: { duration: 5, repeat: Infinity, ease: 'easeInOut' }
+          rotate: { duration: 5, repeat: Infinity, ease: 'easeInOut' },
         }}
       >
         <img
@@ -128,26 +92,27 @@ export default function ServicesSection() {
         />
       </motion.div>
 
-      {/* Floating VIEW cursor */}
+      {/* VIEW CURSOR */}
       {hover && (
         <motion.div
           className="fixed pointer-events-none z-[9999]"
           style={{
             left: `${mouse.x}px`,
             top: `${mouse.y - 50}px`,
-            transform: 'translateX(-50%)'
+            transform: 'translateX(-50%)',
           }}
           animate={{ opacity: 1, scale: [0.9, 1] }}
           transition={{ duration: 0.1 }}
         >
-          <div className="bg-[#0f172a]/80 backdrop-blur-md text-cyan-300 px-5 py-2 rounded-xl font-poppins text-sm shadow-2xl border border-cyan-400/40">
+          <div className="bg-[#0f172a]/80 backdrop-blur-md text-cyan-300 px-5 py-2 rounded-xl text-sm shadow-2xl border border-cyan-400/40">
             VIEW
           </div>
         </motion.div>
       )}
 
-      {/* Scroll-driven content */}
+      {/* SCROLL-DRIVEN CONTENT */}
       <div className="sticky top-0 w-full h-screen overflow-visible z-30">
+        {/* Main Title */}
         <motion.div
           className="absolute inset-0 flex items-center justify-start px-4 sm:px-8 md:px-16 lg:px-24 xl:px-32"
           style={{ y: titleY, opacity: titleOpacity }}
@@ -156,6 +121,7 @@ export default function ServicesSection() {
             <motion.p className="text-cyan-400 text-xs sm:text-sm font-bold tracking-widest mb-2 sm:mb-4">
               01
             </motion.p>
+
             <h2 className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-bold leading-[0.9] text-white">
               Full-Stack
               <br />
@@ -164,15 +130,17 @@ export default function ServicesSection() {
           </div>
         </motion.div>
 
+        {/* Description */}
         <motion.div
           style={{ opacity: descOpacity }}
           className="fixed bottom-[22vh] sm:bottom-[24vh] left-4 sm:left-8 md:left-16 lg:left-24 xl:left-32 max-w-[90%] sm:max-w-md md:max-w-lg"
         >
-          <p className="text-white/80 text-sm sm:text-base md:text-lg leading-relaxed font-poppins">
+          <p className="text-white/80 text-sm sm:text-base md:text-lg leading-relaxed">
             We architect robust, scalable, and seamless full-stack systems that bridge innovation and performance — from backend APIs to futuristic UI.
           </p>
         </motion.div>
 
+        {/* Explore Button */}
         <motion.div
           style={{ opacity: buttonOpacity }}
           className="fixed bottom-[10vh] sm:bottom-[12vh] left-4 sm:left-8 md:left-16 lg:left-24 xl:left-32"
