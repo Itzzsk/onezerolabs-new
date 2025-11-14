@@ -1,118 +1,126 @@
 'use client'
 
-import { motion } from 'framer-motion'
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { motion, useReducedMotion } from 'framer-motion'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import dynamic from 'next/dynamic'
+import './stars.css'
 
 const Earth3D = dynamic(() => import('./Earth3D'), {
   ssr: false,
-  loading: () => (
-    <div className="flex items-center justify-center w-full h-full">
-      <div className="text-cyan-400 text-sm">Loading Earth...</div>
-    </div>
-  ),
+  loading: () => null,
 })
+
+function throttle(callback, limit) {
+  let wait = false
+  return (...args) => {
+    if (!wait) {
+      callback(...args)
+      wait = true
+      setTimeout(() => (wait = false), limit)
+    }
+  }
+}
 
 export default function Hero() {
   const [mounted, setMounted] = useState(false)
-  const [isHovering, setIsHovering] = useState(false)
+  const [earthLoaded, setEarthLoaded] = useState(false)
+  const shouldReduceMotion = useReducedMotion()
   const [manualRotation, setManualRotation] = useState(0)
+  const isInteracting = useRef(false)
+  const lastPointerX = useRef(0)
+  const currentRotation = useRef(0)
 
-  useEffect(() => setMounted(true), [])
-
-  const handleMouseMove = useCallback(
-    (e) => {
-      if (!isHovering) return
-      const rect = e.currentTarget.getBoundingClientRect()
-      const x = (e.clientX - rect.left) / rect.width
-      setManualRotation((x - 0.5) * 360)
-    },
-    [isHovering]
-  )
-
-  const handleMouseEnter = useCallback(() => setIsHovering(true), [])
-
-  const handleMouseLeave = useCallback(() => {
-    setIsHovering(false)
-    setManualRotation(0)
+  useEffect(() => {
+    setMounted(true)
+    const timeout = setTimeout(() => setEarthLoaded(true), 100)
+    return () => clearTimeout(timeout)
   }, [])
 
-  // Background stars
-  const backgroundStars = useMemo(
-    () =>
-      Array.from({ length: 50 }).map((_, i) => ({
-        id: `bg-${i}`,
-        left: Math.random() * 100,
-        top: Math.random() * 100,
-        size: Math.random() * 2 + 0.5,
-        opacity: Math.random() * 0.7 + 0.3,
-        duration: Math.random() * 4 + 3,
-      })),
+  const throttledSetRotation = useCallback(
+    throttle((angle) => {
+      setManualRotation(angle)
+      currentRotation.current = angle
+    }, 16),
     []
   )
 
-  // Stars near Earth left/right
-  const earthSideStars = useMemo(() =>
-    Array.from({ length: 10 }).map((_, i) => ({
-      id: `side-${i}`,
-      left: i < 5 ? Math.random() * 10 + 5 : 85 + Math.random() * 10, // Left 5%, Right 5%
-      top: Math.random() * 50 + 25,
-      size: Math.random() * 2 + 1,
-      color: Math.random() < 0.5 ? '#bfbfbf' : '#ffffff',
-      opacity: Math.random() * 0.9 + 0.1,
-      duration: Math.random() * 4 + 3,
-    })),
-    []
-  )
+  const handlePointerDown = useCallback((e) => {
+    e.preventDefault()
+    isInteracting.current = true
+    lastPointerX.current = e.touches ? e.touches[0].clientX : e.clientX
+  }, [])
 
-  // Earth stars (bottom area)
-  const earthStars = useMemo(
-    () =>
-      Array.from({ length: 30 }).map((_, i) => ({
-        id: `earth-${i}`,
-        left: Math.random() * 100,
-        top: Math.random() * 25 + 70,
-        size: Math.random() * 2 + 0.8,
-        color: Math.random() < 0.3 ? '#bfbfbf' : '#ffffff',
-        opacity: Math.random() * 0.8 + 0.4,
-        duration: Math.random() * 5 + 3,
-      })),
-    []
-  )
+  const handlePointerMove = useCallback((e) => {
+    if (!isInteracting.current) return
+    e.preventDefault()
+    const currentX = e.touches ? e.touches[0].clientX : e.clientX
+    const deltaX = currentX - lastPointerX.current
+    const rotDelta = (deltaX / window.innerWidth) * 180
+    currentRotation.current += rotDelta
+    throttledSetRotation(currentRotation.current)
+    lastPointerX.current = currentX
+  }, [throttledSetRotation])
+
+  const handlePointerUp = useCallback((e) => {
+    e.preventDefault()
+    isInteracting.current = false
+  }, [])
+
+  // Memoize background stars to prevent recalculation on every render
+  const backgroundStars = useMemo(() => {
+    const count = shouldReduceMotion ? 40 : 80
+    return Array.from({ length: count }, (_, i) => ({
+      id: `star-bg-${i}`,
+      size: Math.random() * 3 + 1,
+      top: Math.random() * 100,
+      duration: 20 + Math.random() * 30,
+      delay: Math.random() * -50,
+    }))
+  }, [shouldReduceMotion])
+
+  // Memoize orbiting stars to prevent recalculation
+  const orbitingStars = useMemo(() => {
+    const count = shouldReduceMotion ? 25 : 50
+    return Array.from({ length: count }, (_, i) => ({
+      id: `orbit-star-${i}`,
+      size: Math.random() * 3 + 2,
+      orbitRadius: 35 + Math.random() * 15,
+      startAngle: (i / count) * 360,
+      duration: 30 + Math.random() * 20,
+      delay: (i / count) * -50,
+    }))
+  }, [shouldReduceMotion])
 
   return (
     <section className="relative w-full h-screen bg-black overflow-hidden flex flex-col justify-center items-center select-none">
-      {/* Background Stars */}
+      {/* Background stars moving left */}
       {mounted && (
-        <div className="absolute inset-0 z-0 will-change-transform">
+        <div className="absolute inset-0 z-0 stars-container" aria-hidden="true">
           {backgroundStars.map((star) => (
-            <motion.div
+            <div
               key={star.id}
-              className="absolute rounded-full bg-white"
+              className="moving-star"
               style={{
-                left: `${star.left}%`,
-                top: `${star.top}%`,
                 width: `${star.size}px`,
                 height: `${star.size}px`,
-                filter: `drop-shadow(0 0 2px rgba(255,255,255,${star.opacity}))`,
+                top: `${star.top}%`,
+                animationDuration: `${star.duration}s`,
+                animationDelay: `${star.delay}s`,
               }}
-              animate={{ opacity: [star.opacity * 0.3, star.opacity, star.opacity * 0.3] }}
-              transition={{ duration: star.duration, repeat: Infinity, ease: 'easeInOut' }}
             />
           ))}
         </div>
       )}
 
-      {/* Text Content shifted up 2% */}
+      {/* Text content */}
       <div
-        className="relative z-30 flex flex-col items-center justify-center max-w-5xl text-center px-6 mb-24"
+        className="relative z-30 flex flex-col items-center text-center px-6 mb-24"
         style={{ transform: 'translateY(-15%)' }}
       >
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 1 }}
-          style={{ willChange: 'transform, opacity' }}
+          transition={{ duration: 0.8 }}
         >
           <h1 className="text-[2.4rem] sm:text-6xl md:text-7xl lg:text-8xl font-extrabold text-white tracking-wider mb-6 leading-tight">
             ONEZEROLABS
@@ -121,9 +129,8 @@ export default function Hero() {
           <motion.p
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 1, delay: 0.3 }}
-            className="text-gray-300 text-base sm:text-lg md:text-2xl font-semibold max-w-3xl mx-auto mb-5"
-            style={{ willChange: 'transform, opacity' }}
+            transition={{ duration: 0.8, delay: 0.2 }}
+            className="text-gray-300 text-base sm:text-lg md:text-2xl font-semibold mb-5 max-w-3xl"
           >
             Your Creative Partner for Design, Development and Growth.
           </motion.p>
@@ -131,95 +138,80 @@ export default function Hero() {
           <motion.p
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 1, delay: 0.5 }}
-            className="text-gray-400 text-sm sm:text-base md:text-lg max-w-2xl mx-auto leading-relaxed"
-            style={{ willChange: 'transform, opacity' }}
+            transition={{ duration: 0.8, delay: 0.4 }}
+            className="text-gray-400 text-sm sm:text-base md:text-lg max-w-2xl leading-relaxed"
           >
             We craft modern Websites, intuitive Designs, and scalable Digital Solutions that help Businesses grow, engage, and stand out.
           </motion.p>
         </motion.div>
       </div>
 
-      {/* Earth + Earth Stars */}
+      {/* Earth container */}
       <div
-        className="absolute bottom-0 left-0 right-0 z-20 pointer-events-auto overflow-hidden"
+        className="absolute bottom-0 left-0 right-0 z-20 overflow-hidden cursor-grab active:cursor-grabbing"
         style={{ height: '55vh' }}
-        onMouseMove={handleMouseMove}
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerLeave={handlePointerUp}
       >
-        {/* Earth Side Stars */}
+        {/* Circular rotating stars BEHIND Earth */}
         {mounted && (
-          <div className="absolute inset-0 z-10">
-            {earthSideStars.map((star) => (
-              <motion.div
+          <div
+            className="absolute left-1/2 bottom-[20%] w-[180vw] aspect-square -translate-x-1/2 z-0 rotating-stars-ring"
+            aria-hidden="true"
+          >
+            {orbitingStars.map((star) => (
+              <div
                 key={star.id}
-                className="absolute rounded-full"
+                className="rotating-star"
                 style={{
-                  left: `${star.left}%`,
-                  top: `${star.top}%`,
+                  '--orbit-radius': `${star.orbitRadius}%`,
+                  '--start-angle': `${star.startAngle}deg`,
+                  '--duration': `${star.duration}s`,
                   width: `${star.size}px`,
                   height: `${star.size}px`,
-                  background: star.color,
-                  boxShadow: `0 0 ${star.size * 2}px ${star.color}`,
+                  animationDelay: `${star.delay}s`,
                 }}
-                animate={{ opacity: [star.opacity * 0.4, star.opacity, star.opacity * 0.4] }}
-                transition={{ duration: star.duration, repeat: Infinity, ease: 'easeInOut' }}
               />
             ))}
           </div>
         )}
 
-        {/* Earth Stars */}
-        {mounted && (
-          <div className="absolute inset-0 z-10 will-change-transform">
-            {earthStars.map((star) => (
-              <motion.div
-                key={star.id}
-                className="absolute rounded-full"
-                style={{
-                  left: `${star.left}%`,
-                  top: `${star.top}%`,
-                  width: `${star.size}px`,
-                  height: `${star.size}px`,
-                  background: star.color,
-                  boxShadow: `0 0 ${star.size * 2}px ${star.color}`,
-                }}
-                animate={{ opacity: [star.opacity * 0.4, star.opacity, star.opacity * 0.4] }}
-                transition={{ duration: star.duration, repeat: Infinity, ease: 'easeInOut' }}
-              />
-            ))}
-          </div>
-        )}
-
-        {/* Earth 3D Component */}
+        {/* Earth - in FRONT of rotating stars */}
         <div
-          className="absolute left-1/2 bottom-0 aspect-square will-change-transform"
+          className="absolute left-1/2 bottom-0 aspect-square z-10"
           style={{
-            width: '350vw',
-            maxWidth: '4000px',
-            transform: 'translateX(-50%) translateY(62%)',
+            width: '200vw',
+            transform: 'translateX(-50%) translateY(65%)',
           }}
         >
-          {mounted && (
-            <Earth3D manualRotation={manualRotation} autoRotate={!isHovering} />
+          {mounted && earthLoaded && (
+            <Earth3D manualRotation={manualRotation} autoRotate={!isInteracting.current} />
           )}
         </div>
 
         {/* Gradient fade */}
-        <div className="absolute bottom-0 left-0 right-0 h-40 sm:h-48 bg-gradient-to-t from-black/90 via-black/40 to-transparent pointer-events-none z-30" />
+        <div className="absolute bottom-0 left-0 right-0 h-40 sm:h-48 bg-gradient-to-t from-black via-black/40 to-transparent pointer-events-none z-30" />
       </div>
 
-      {/* Fullscreen Button */}
+      {/* Fullscreen button */}
       <motion.button
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ delay: 1.2 }}
-        className="fixed bottom-5 right-5 sm:bottom-8 sm:right-8 z-40 p-2.5 sm:p-3 bg-white/10 backdrop-blur-xl border border-white/30 rounded-lg hover:bg-white/20 transition-all"
+        transition={{ delay: 1 }}
+        onClick={() => {
+          if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen()
+          } else {
+            document.exitFullscreen()
+          }
+        }}
+        className="fixed bottom-5 right-5 z-40 p-3 bg-white/10 backdrop-blur-xl border border-white/30 rounded-lg hover:bg-white/20 transition-all"
         title="Fullscreen"
       >
         <svg
-          className="w-4 h-4 sm:w-5 sm:h-5 text-white"
+          className="w-5 h-5 text-white"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
