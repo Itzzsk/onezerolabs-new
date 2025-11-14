@@ -87,7 +87,7 @@ export default function Earth3D() {
         clearColor: 'black',
       }}
       onCreated={({ gl }) => {
-        gl.setClearColor('#000000')
+     
       }}
       dpr={[1, 1]} // MAX performance
       frameloop="always"
@@ -100,3 +100,4 @@ export default function Earth3D() {
     </Canvas>
   )
 }
+
