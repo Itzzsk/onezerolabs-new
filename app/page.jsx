@@ -3,7 +3,7 @@
 import { useRef } from 'react'
 import { useScroll } from 'framer-motion'
 
-// 🪐 Components
+// Components
 import Hero from '../components/Hero'
 import ScrollBlurTextAppearSection from '../components/ScrollBlurTextAppearSection'
 import ServicesSection from '@/components/ServicesSection'
@@ -16,6 +16,7 @@ import Stats from '../components/Stats'
 import SkillShowcase from '../components/SkillShowcase'
 import Testimonials from '../components/Testimonials'
 
+
 export default function Home() {
   const containerRef = useRef(null)
   const { scrollYProgress } = useScroll({
@@ -26,41 +27,44 @@ export default function Home() {
   return (
     <main ref={containerRef} className="relative bg-black overflow-x-hidden">
       
-      {/* ======================= 🌍 HERO SECTION ======================= */}
+      {/* 3D Earth Model - Fixed on right side */}
+
+      
+      {/* Hero Section */}
       <Hero />
 
-      {/* ======================= 🪄 TEXT + IMAGE GALLERY ======================= */}
+      {/* Text + Image Gallery */}
       <ScrollBlurTextAppearSection />
 
-      {/* ======================= ⚡ SERVICES FLOW ======================= */}
+      {/* Services Flow */}
       <div className="relative z-10">
         <ServicesSection />
         <ServicesSectionTwo />
         <ServicesSectionThree />
       </div>
 
-      {/* Divider Line */}
-      <div className="w-full h-[2px] bg-gradient-to-r from-transparent via-cyan-400/40 to-transparent my-8"></div>
+      {/* Divider */}
+      <div className="w-full h-[2px] bg-gradient-to-r from-transparent via-cyan-400/40 to-transparent my-8" />
 
-      {/* ======================= 💼 SERVICES GRID ======================= */}
+      {/* Services Grid */}
       <ServicesGrid />
 
-      {/* ======================= ✉️ CONTACT SECTION ======================= */}
+      {/* Contact Section */}
       <ContactSection />
 
-      {/* Divider Line */}
-      <div className="w-full h-[2px] bg-gradient-to-r from-transparent via-cyan-400/40 to-transparent my-8"></div>
+      {/* Divider */}
+      <div className="w-full h-[2px] bg-gradient-to-r from-transparent via-cyan-400/40 to-transparent my-8" />
 
-      {/* ======================= 🚀 FEATURED PROJECTS ======================= */}
+      {/* Featured Projects */}
       <FeaturedProjects />
 
-      {/* ======================= 📊 COMPANY STATS ======================= */}
+      {/* Company Stats */}
       <Stats />
 
-      {/* ======================= 🧠 SKILL SHOWCASE ======================= */}
+      {/* Skill Showcase */}
       <SkillShowcase />
 
-      {/* ======================= 💬 TESTIMONIALS ======================= */}
+      {/* Testimonials */}
       <Testimonials />
     </main>
   )
