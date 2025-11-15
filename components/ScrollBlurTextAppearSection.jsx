@@ -3,6 +3,8 @@
 import { useRef, useEffect, useState } from 'react'
 import { motion, useScroll, useTransform } from 'framer-motion'
 
+// 🔥 PUBLIC FOLDER PATHS
+// Put ALL these images inside: public/uiux/ and public/graphicdesigns/
 const uiuxLeft = [
   '/uiux/design1.png',
   '/uiux/Picsart_25-02-08_19-41-54-723.jpg',
@@ -29,7 +31,9 @@ export default function GalleryScroll() {
   const ref = useRef(null)
   const [isMobile, setIsMobile] = useState(false)
 
+  // Prevents SSR crash
   useEffect(() => {
+    if (typeof window === 'undefined') return
     const detect = () => setIsMobile(window.innerWidth < 768)
     detect()
     window.addEventListener('resize', detect)
@@ -41,9 +45,8 @@ export default function GalleryScroll() {
     offset: ['start start', 'end end'],
   })
 
-  // MUCH FASTER animation on phone
   const fadePoints = isMobile
-    ? [0, 0.02, 0.10, 0.18, 0.25] // very fast appear/disappear
+    ? [0, 0.02, 0.1, 0.18, 0.25]
     : [0, 0.05, 0.25, 0.65, 0.8]
 
   const textOpacity = useTransform(scrollYProgress, fadePoints, [0, 1, 1, 1, 0])
@@ -53,33 +56,26 @@ export default function GalleryScroll() {
     <section
       ref={ref}
       className="relative w-full bg-black overflow-hidden"
-      style={{ minHeight: '450vh' }} // big layout like you wanted
+      style={{ minHeight: '450vh' }}
     >
 
-      {/* Strong dark overlay on phone */}
       <div
         className={`absolute inset-0 pointer-events-none z-10 ${
           isMobile ? 'bg-black/60' : 'bg-black/25'
         }`}
       />
 
-      {/* 3 COLUMN GRID ALWAYS */}
-      <div
-        className="
-          absolute inset-0 grid grid-cols-3
-          gap-6 px-2 sm:px-8 md:px-16 pt-20
-        "
-      >
+      {/* ALWAYS 3 COLUMNS */}
+      <div className="absolute inset-0 grid grid-cols-3 gap-6 px-2 sm:px-8 md:px-16 pt-20">
 
-        {/* LEFT COLUMN */}
+        {/* LEFT */}
         <div className="flex flex-col gap-8">
           {uiuxLeft.map((src, i) => (
-            <div
-              key={i}
-              className="bg-zinc-900/40 border border-zinc-700/30 p-2 rounded-2xl"
-            >
+            <div key={i} className="bg-zinc-900/40 border border-zinc-700/30 p-2 rounded-2xl">
               <img
                 src={src}
+                alt=""
+                loading="lazy"
                 className={`w-full h-full object-cover opacity-60 ${
                   isMobile ? 'scale-[1.25]' : 'scale-[1.05]'
                 }`}
@@ -88,15 +84,14 @@ export default function GalleryScroll() {
           ))}
         </div>
 
-        {/* CENTER COLUMN */}
+        {/* CENTER */}
         <div className="flex flex-col gap-10 mt-10">
           {graphics.map((src, i) => (
-            <div
-              key={i}
-              className="bg-zinc-900/40 border border-zinc-700/30 p-2 rounded-2xl"
-            >
+            <div key={i} className="bg-zinc-900/40 border border-zinc-700/30 p-2 rounded-2xl">
               <img
                 src={src}
+                alt=""
+                loading="lazy"
                 className={`w-full h-full object-cover opacity-60 ${
                   isMobile ? 'scale-[1.20]' : 'scale-[1.05]'
                 }`}
@@ -105,15 +100,14 @@ export default function GalleryScroll() {
           ))}
         </div>
 
-        {/* RIGHT COLUMN */}
+        {/* RIGHT */}
         <div className="flex flex-col gap-8">
           {uiuxRight.map((src, i) => (
-            <div
-              key={i}
-              className="bg-zinc-900/40 border border-zinc-700/30 p-2 rounded-2xl"
-            >
+            <div key={i} className="bg-zinc-900/40 border border-zinc-700/30 p-2 rounded-2xl">
               <img
                 src={src}
+                alt=""
+                loading="lazy"
                 className={`w-full h-full object-cover opacity-60 ${
                   isMobile ? 'scale-[1.25]' : 'scale-[1.05]'
                 }`}
@@ -124,7 +118,7 @@ export default function GalleryScroll() {
 
       </div>
 
-      {/* FIXED CENTER TEXT — ALWAYS 2 LINES */}
+      {/* CENTER TEXT */}
       <motion.div
         style={{ opacity: textOpacity, filter: textBlur }}
         className="fixed inset-0 z-[70] flex items-center justify-center pointer-events-none"
